@@ -1,9 +1,10 @@
 import DeepMIMO
 import numpy as np
 import matplotlib.pyplot as plt
+from utils import get_precoder_combiner, gen_dftcodebook, beamsweeping2
 
 
-def general_parameters_conf(scenario : str, scenario_folder : str, num_paths : int):
+def general_parameters_conf(scenario : str, scenario_folder : str, num_paths : int)->dict:
     # Load the default parameters
     parameters = DeepMIMO.default_params()
 
@@ -63,29 +64,41 @@ def signal_conf(parameters, num_channels : int, num_subcarriers : int, sc_limit 
     parameters['OFDM']['RX_filter'] = rx_filter
 
 def ue_channel_matrix(grid_size : int, dataset):
-
     pass
+
+
+def codeword_snr(tx_power:float, noise_power:float,codeword, channel_matrix)->float:
+    snr = (tx_power*np.linalg.norm(np.matmul(codeword, channel_matrix))**2/
+            noise_power*np.linalg.norm(codeword)**2)
+
+    return snr
+
+def codeword_gain(codeword,channel_matrix)->float:
+    gain = np.linalg.norm(np.matmul(codeword, channel_matrix))**2
+
+    return gain
+
     
 if __name__ == '__main__':
     scenario = 'O1_60'
-    scenario_folder = r'../scenarios/deepmimo'
+    scenario_folder = r'../../../scenarios/deepmimo'
     num_paths = 25
 
     parameters = general_parameters_conf(scenario, scenario_folder, num_paths)
 
+    active_users = np.array([1])
     first_row = 1
     last_row = 1
     ue_shape = np.array([1,1,1])
-    active_users = np.array([1,2,3])
     userequipment_conf(parameters, active_users, first_row, last_row, ue_shape)
 
-    active_bs = np.array([1,2,3])
+    active_bs = np.array([1])
     bs_shape = np.array([1,4,1])
     basestation_conf(parameters, active_bs, bs_shape)
 
     num_channels = 1
     num_subcarriers = 512
-    subcarrier_limit = 32
+    subcarrier_limit = 1 #32
     subcarrier_sampling = 1
     bandwidth = 0.05
     rx_filter = 0
@@ -93,8 +106,36 @@ if __name__ == '__main__':
 
     dataset = DeepMIMO.generate_data(parameters)
 
+    precoder = {}
+    combiner = {}
+    dftcodebook = {}
     for i in active_bs:
         for j in active_users:
             print("BS {i} and UE {j}".format(i=i,j=j))
             channel_matrix = dataset[i-1]['user']['channel'][j]
-            print(channel_matrix)
+
+            # ================= SVD PRECODING AND COMBINING ====================
+            precoder[i,j], combiner[i,j] = get_precoder_combiner(channel_matrix)
+            print(precoder, combiner)
+
+            # ======================= DFT CODEBOOK =============================
+            dftcodebook[i,j] = gen_dftcodebook(bs_shape[1])
+            print(dftcodebook)
+            p_estmax, cw_id_max = beamsweeping2(channel_matrix[0], dftcodebook)
+
+
+            #======================= LLOYD CODEBOOK ============================
+
+
+            #======================= GAIN COMPARISON ===========================
+            '''
+            svd_gain = codeword_gain()
+            dft_gain = codeword_gain()
+            lloyd_gain = codeword_gain()
+
+            print('SVD Gain : {svd}\nDFT Gain : {dft}\nLloyd Gain : {gla}'.format(svd=svd_gain,
+                    dft=dft_gain, gla=lloyd_gain))
+            '''
+
+
+
