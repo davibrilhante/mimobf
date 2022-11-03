@@ -321,60 +321,74 @@ def beamsweeping(ch, cb_dict):
     return p_est_max, cw_id_max_tx, cw_id_max_rx
 
 
-def beamsweeping2(ch, cb_dict):
+def beamsweeping2(ch, cb_array):
     '''
         This is correct! Checked!!
     '''
 
     p_est_max = -np.Inf
     cw_id_max_tx = ''
-    n_rx, n_tx = np.shape(ch)
     
     u, s, vh = svd(ch)
-    #u = np.matrix(u)
-    #vh = np.matrix(vh)
-    #f = vh[0,:]
-    f = np.matrix(vh[0,:]).T
-    #w = u[:,0]
-    w = np.matrix(u[:,0]).T
-    cw_rx = w
+
+    cw_rx = np.matrix(u[:,0])
+
+    #print("canal u cw shape",ch.shape,u.shape,cw_rx.shape)
     
-    for k in cb_dict.keys():
-        cw_tx = cb_dict[k]
-        ##cw_tx = np.matrix(cw_tx)
-        #print (f'shape of cw_tx: {np.shape(cw_tx)}')
-        #cw_tx = np.array(cw_tx).reshape(n_rx, n_tx)
-        #cw_tx = m * cw_tx/norm(cw_tx) # squared norm
-        #print (f'norm(cw): {norm(cw)}')
-        #print (f'-------------> norm of f: {norm(np.array(cw_tx))}')
-       
-        #for l in cb_dict.keys():
-        #    cw_rx = cb_dict[l]
-        #    cw_rx = np.matrix(cw_rx)
-        #    print (f'shape of cw_rx: {np.shape(cw_rx)}')
-        #    #cw_rx = np.array(cw_rx).reshape(n_rx, n_tx)
-        #    #cw_rx = m * cw_rx/norm(cw_rx) # squared norm
-        #    #print (f'norm(cw): {norm(cw)}')
-        #    #u_rx, s_rx, vh_rx = svd(cw_rx)
-        #    #u_rx = np.matrix(u_rx)
-        #    #vh_s = np.matrix(vh_s)
-        #    #f_s = vh_s[0,:]
-        #    #w_s = u_rx[:,0]
-        #    #print (f'-------------> norm of ws: {norm(np.array(cw_rx))}')
-    
-        print(np.shape(cw_rx), np.shape(cw_tx))
-        p_s = cw_rx.conj().T * (ch * cw_tx.conj())
-        #print (p_s)
+    num_of_cw = cb_array.shape[1]
+
+    for k in range(num_of_cw):
+        cw_tx = cb_array[k]
+
+        #print("cw_tx",cw_tx.shape,ch.T.shape,cw_rx.shape)
+        
+        p_s = (cw_tx.conj() * ch.T) * cw_rx.conj()
         p_s = norm(p_s) ** 2
-        #p_s = np.abs(p_s.conj() * p_s)
+
         if p_s > p_est_max:
             p_est_max = p_s
             cw_id_max_tx = k
-            #cw_id_max_rx = l
 
-    return p_est_max, cw_id_max_tx #, cw_id_max_rx
+    return p_est_max, cw_id_max_tx
 
+def beamsweeping3(ch, cb_tx, cb_rx):
+    '''
+        This is correct! Checked!!
+    '''
 
+    p_est_max = -np.Inf
+    cw_id_max_tx = ''
+    cw_id_max_rx = ''
+
+    beampairs = []
+    
+    num_of_cw_tx = cb_tx.shape[1]
+    num_of_cw_rx = cb_rx.shape[1]
+
+    for i in range(num_of_cw_tx):
+        for j in range(num_of_cw_rx):
+
+            # print("CB_TX {i} and CB_RX {j}".format(i=i,j=j))
+
+            cw_tx = cb_tx[i]
+            cw_rx = cb_rx[j]
+
+            #print("cw_tx_rx",cw_tx.shape,ch.T.shape,cw_rx.shape)
+
+            p_s = (cw_tx.conj() * ch.T) * cw_rx.conj().T
+            p_s = norm(p_s) ** 2
+
+            beampairs.append([i,j,p_s])
+            beampairs.sort(reverse=True, key=lambda x: x[2])
+
+            if p_s > p_est_max:
+                p_est_max = p_s
+                cw_id_max_tx = i
+                cw_id_max_rx = j
+
+    print(beampairs[:20])
+    
+    return p_est_max, cw_id_max_tx, cw_id_max_rx
 
 def wf(s, snr_v):
     """
@@ -490,9 +504,10 @@ def squared_norm(cw):
 #    return np.sqrt(squared_norm(cw))
 
 def get_precoder_combiner(h):
-    u, s, vh = svd(h)
-    precoder = np.matrix(vh).conj().T[:,0]
-    combining = np.matrix(u).conj().T[0,:]
+    u, s, vh = svd(h,full_matrices=True)
+    
+    precoder = np.matrix(vh[0,:])
+    combining = np.matrix(u[:,0])
     return precoder, combining
 
 def gen_dftcodebook(num_of_cw, oversampling_factor=None):
