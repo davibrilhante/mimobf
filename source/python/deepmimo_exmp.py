@@ -1,8 +1,8 @@
 import DeepMIMO
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import get_precoder_combiner, gen_dftcodebook, beamsweeping2
-
+from utils import get_precoder_combiner, gen_dftcodebook, beamsweeping2, beamsweeping3
+from numpy.linalg import svd, norm
 
 def general_parameters_conf(scenario : str, scenario_folder : str, num_paths : int)->dict:
     # Load the default parameters
@@ -22,7 +22,7 @@ def general_parameters_conf(scenario : str, scenario_folder : str, num_paths : i
 
 def userequipment_conf(parameters,active_ue:np.array,first_row:int, last_row:int, 
                         antenna_shape:np.array, rotation:np.array=np.array([0,0,0]),
-                        spacing:float=0.5, pattern:str='isotropic'):
+                        spacing:float=0.25, pattern:str='isotropic'):
 
     parameters['active_users'] = active_ue
 
@@ -39,7 +39,7 @@ def userequipment_conf(parameters,active_ue:np.array,first_row:int, last_row:int
     parameters['ue_antenna']['radiation_pattern'] = pattern
 
 def basestation_conf(parameters,active_bs:np.array,antenna_shape:np.array,
-                        spacing:float=0.5,rotation:np.array=np.array([0,0,0]),
+                        spacing:float=0.25,rotation:np.array=np.array([0,0,0]),
                         pattern:str='isotropic',bs2bs:int=1):
 
     # To activate only the first basestation, set
@@ -86,14 +86,14 @@ if __name__ == '__main__':
 
     parameters = general_parameters_conf(scenario, scenario_folder, num_paths)
 
-    active_users = np.array([1])
+    active_users = np.array([180])
     first_row = 1
     last_row = 1
     ue_shape = np.array([1,1,1])
     userequipment_conf(parameters, active_users, first_row, last_row, ue_shape)
 
-    active_bs = np.array([1])
-    bs_shape = np.array([1,4,1])
+    active_bs = np.array([5])
+    bs_shape = np.array([1,64,1])
     basestation_conf(parameters, active_bs, bs_shape)
 
     num_channels = 1
@@ -108,21 +108,36 @@ if __name__ == '__main__':
 
     precoder = {}
     combiner = {}
-    dftcodebook = {}
-    for i in active_bs:
-        for j in active_users:
-            print("BS {i} and UE {j}".format(i=i,j=j))
-            channel_matrix = dataset[i-1]['user']['channel'][j]
+    dftcodebook_tx = {}
+    dftcodebook_rx = {}
+
+    # ======================= DFT CODEBOOK =============================
+    dftcodebook_tx = gen_dftcodebook(bs_shape[1])
+    # print(dftcodebook_tx)
+
+    dftcodebook_rx = gen_dftcodebook(ue_shape[1])
+    # print(dftcodebook_rx)
+    
+    for i, bs in enumerate(active_bs):
+        for j, ue in enumerate(active_users):
+
+            print("BS {i} and UE {j}".format(i=bs,j=ue))
+            channel_matrix = dataset[i-1]['user']['channel'][j-1]
+
+            channel = np.matrix(channel_matrix[:,:,0])
+
+            #p_estmax, cw_id_max = beamsweeping2(channel, dftcodebook_tx)
+            #print(p_estmax, cw_id_max)
+
+            p_estmax, cw_id_max_tx, cw_id_max_rx = beamsweeping3(channel, dftcodebook_tx, dftcodebook_rx)
+            print(p_estmax, cw_id_max_tx, cw_id_max_rx)
 
             # ================= SVD PRECODING AND COMBINING ====================
-            precoder[i,j], combiner[i,j] = get_precoder_combiner(channel_matrix)
-            print(precoder, combiner)
-
-            # ======================= DFT CODEBOOK =============================
-            dftcodebook[i,j] = gen_dftcodebook(bs_shape[1])
-            print(dftcodebook)
-            p_estmax, cw_id_max = beamsweeping2(channel_matrix[0], dftcodebook)
-
+            # print("precoder and combiner")
+            precoder, combiner = get_precoder_combiner(channel)
+            p_s = (precoder.conj() * channel.T) * combiner.conj()
+            p_s = norm(p_s) ** 2
+            print("SVD",p_s)
 
             #======================= LLOYD CODEBOOK ============================
 
