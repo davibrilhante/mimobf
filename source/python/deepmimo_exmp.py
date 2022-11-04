@@ -1,8 +1,12 @@
 import DeepMIMO
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import get_precoder_combiner, gen_dftcodebook, beamsweeping2, beamsweeping3
 from numpy.linalg import svd, norm
+
+#from https://github.com/sergiossc/analog-beamforming-v2i
+from utils import get_precoder_combiner, gen_dftcodebook, beamsweeping2, beamsweeping3
+
+from plot_utils import plot_codeword_2D
 
 def general_parameters_conf(scenario : str, scenario_folder : str, num_paths : int)->dict:
     # Load the default parameters
@@ -89,11 +93,11 @@ if __name__ == '__main__':
     active_users = np.array([180])
     first_row = 1
     last_row = 1
-    ue_shape = np.array([1,1,1])
+    ue_shape = np.array([1,2,1])
     userequipment_conf(parameters, active_users, first_row, last_row, ue_shape)
 
     active_bs = np.array([5])
-    bs_shape = np.array([1,64,1])
+    bs_shape = np.array([1,16,1])
     basestation_conf(parameters, active_bs, bs_shape)
 
     num_channels = 1
@@ -117,12 +121,16 @@ if __name__ == '__main__':
 
     dftcodebook_rx = gen_dftcodebook(ue_shape[1])
     # print(dftcodebook_rx)
+
+    Lambda = 3e8/60e9
     
     for i, bs in enumerate(active_bs):
         for j, ue in enumerate(active_users):
 
             print("BS {i} and UE {j}".format(i=bs,j=ue))
-            channel_matrix = dataset[i-1]['user']['channel'][j-1]
+
+            path = dataset[i]['user']['paths'][j]
+            channel_matrix = dataset[i]['user']['channel'][j]
 
             channel = np.matrix(channel_matrix[:,:,0])
 
@@ -131,6 +139,20 @@ if __name__ == '__main__':
 
             p_estmax, cw_id_max_tx, cw_id_max_rx = beamsweeping3(channel, dftcodebook_tx, dftcodebook_rx)
             print(p_estmax, cw_id_max_tx, cw_id_max_rx)
+
+            plot_codeword_2D(dftcodebook_tx[:,cw_id_max_tx],  #codeword
+                    bs_shape[:2],           #antenna dimensions
+                    Lambda,                 #wavelength
+                    0.25,                   #relative distance between elements
+                    np.pi/2,#path['DoD_theta'][0],                
+                    path['DoD_phi'][0])
+
+            plot_codeword_2D(dftcodebook_rx[:,cw_id_max_rx],  #codeword
+                    ue_shape[:2],           #antenna dimensions
+                    Lambda,                 #wavelength
+                    0.25,                   #relative distance between elements
+                    np.pi/2, #path['DoA_theta'][0],                #Phi
+                    path['DoA_phi'][0])
 
             # ================= SVD PRECODING AND COMBINING ====================
             # print("precoder and combiner")
@@ -151,6 +173,3 @@ if __name__ == '__main__':
             print('SVD Gain : {svd}\nDFT Gain : {dft}\nLloyd Gain : {gla}'.format(svd=svd_gain,
                     dft=dft_gain, gla=lloyd_gain))
             '''
-
-
-
