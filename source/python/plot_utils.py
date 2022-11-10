@@ -76,12 +76,27 @@ def codeword_pattern(codeword, antenna_size, Lambda, element_dist, phi, theta):
 
     return pattern
 
-def plot_codeword_2D(codeword, antenna_size, Lambda, element_dist, theta=np.pi/2, marker=None, samples=100, save=False, figname=None):
+def codeword_ula_pattern(codeword, antenna_size, Lambda, element_dist, phi, theta):
+    antenna_gain = np.sqrt(1/(antenna_size[1]))
+
+    k = 2*np.pi/Lambda
+
+    array_factor = np.matrix(np.exp(1j*k*Lambda*element_dist*np.arange(antenna_size[1])*np.cos(phi)))
+
+    #print("AF({p}): {a}".format(p=phi, a=array_factor))
+    
+    pattern = array_factor * codeword
+
+    pattern = np.linalg.norm(pattern)**2
+    
+    return pattern
+
+def plot_codeword_2D(codeword, antenna_size, Lambda, element_dist, theta=np.pi/2, marker=None, samples=1000, save=False, figname=None):
     phi = np.arange(-np.pi, np.pi, 1/samples)
     pattern = [] #[[] for i in range(antenna_size[0]*antenna_size[1])]
 
     for p in phi:
-        pattern.append(codeword_pattern(codeword, antenna_size, Lambda, element_dist, p, theta))
+        pattern.append(codeword_ula_pattern(codeword, antenna_size, Lambda, element_dist, p, theta))
 
 
     fig, ax = plt.subplots(1,1,subplot_kw={'projection': 'polar'})

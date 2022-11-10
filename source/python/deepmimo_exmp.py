@@ -84,7 +84,7 @@ def codeword_gain(codeword,channel_matrix)->float:
 
     
 if __name__ == '__main__':
-    scenario = 'O1_60'
+    scenario = 'O1_28B'
     scenario_folder = r'../../../scenarios/deepmimo'
     num_paths = 25
 
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     userequipment_conf(parameters, active_users, first_row, last_row, ue_shape)
 
     active_bs = np.array([5])
-    bs_shape = np.array([1,16,1])
+    bs_shape = np.array([1,4,1])
     basestation_conf(parameters, active_bs, bs_shape)
 
     num_channels = 1
@@ -115,15 +115,23 @@ if __name__ == '__main__':
     dftcodebook_tx = {}
     dftcodebook_rx = {}
 
+    Lambda = 3e8/60e9
+
     # ======================= DFT CODEBOOK =============================
     dftcodebook_tx = gen_dftcodebook(bs_shape[1])
     # print(dftcodebook_tx)
 
+    for codeword in range (bs_shape[1]):
+        plot_codeword_2D(dftcodebook_tx[:,codeword],  #codeword
+                         bs_shape[:2],           #antenna dimensions
+                         Lambda,                 #wavelength
+                         0.25,                   #relative distance between elements
+                         np.pi/2,#path['DoD_theta'][0],                
+                         0)
+        
     dftcodebook_rx = gen_dftcodebook(ue_shape[1])
     # print(dftcodebook_rx)
 
-    Lambda = 3e8/60e9
-    
     for i, bs in enumerate(active_bs):
         for j, ue in enumerate(active_users):
 
@@ -147,12 +155,12 @@ if __name__ == '__main__':
                     np.pi/2,#path['DoD_theta'][0],                
                     path['DoD_phi'][0])
 
-            plot_codeword_2D(dftcodebook_rx[:,cw_id_max_rx],  #codeword
-                    ue_shape[:2],           #antenna dimensions
-                    Lambda,                 #wavelength
-                    0.25,                   #relative distance between elements
-                    np.pi/2, #path['DoA_theta'][0],                #Phi
-                    path['DoA_phi'][0])
+            # plot_codeword_2D(dftcodebook_rx[:,cw_id_max_rx],  #codeword
+            #         ue_shape[:2],           #antenna dimensions
+            #         Lambda,                 #wavelength
+            #         0.25,                   #relative distance between elements
+            #         np.pi/2, #path['DoA_theta'][0],                #Phi
+            #         path['DoA_phi'][0])
 
             # ================= SVD PRECODING AND COMBINING ====================
             # print("precoder and combiner")
