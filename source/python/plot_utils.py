@@ -25,10 +25,10 @@ def ula_array_factor(antenna_size, element_dist, phi, theta):
     k = 2*np.pi#/Lambda
 
     if antenna_size[1]==1 and antenna_size[2]==1:
-        array_factor = np.exp(1j*k*element_dist*np.arange(antenna_size[0])*np.sin(theta)*np.sin(phi))
+        array_factor = np.exp(1j*k*element_dist*np.arange(antenna_size[0])*(np.sin(theta)*np.sin(phi) + np.pi/2))
 
     elif antenna_size[0]==1 and antenna_size[2]==1:
-        array_factor = np.exp(1j*k*element_dist*np.arange(antenna_size[1])*np.sin(theta)*np.cos(phi))
+        array_factor = np.exp(1j*k*element_dist*np.arange(antenna_size[1])*(np.sin(theta)*np.cos(phi) + np.pi/2))
 
     elif antenna_size[0]==1 and antenna_size[1]==1:
         array_factor = np.exp(1j*k*element_dist*np.arange(antenna_size[2])*np.sin(phi)*np.cos(tetha))
@@ -42,9 +42,11 @@ def upa_array_factor(antenna_size, element_dist, phi, theta):
     k = 2*np.pi #/Lambda
 
 
-    x_factor = np.exp(1j*k*element_dist*np.arange(antenna_size[0])*np.sin(theta)*np.cos(phi))
-    y_factor = np.exp(1j*k*element_dist*np.arange(antenna_size[1])*np.cos(theta))
-    #z_factor = ???
+    x_factor = np.exp(1j*k*element_dist*np.arange(antenna_size[0])*np.sin(theta)*np.sin(phi))
+    y_factor = np.exp(1j*k*element_dist*np.arange(antenna_size[1])*np.sin(theta)*np.cos(phi))
+    '''
+    z_factor = np.exp(1j*k*element_dist*np.arange(antenna_size[2])*np.sin(phi)*np.cos(tetha))
+    '''
 
     #return np.linalg.norm(norm*sum(np.kron(x_factor, y_factor)))
     array_factor = np.kron(x_factor, y_factor)
@@ -83,23 +85,27 @@ def get_polar_pattern_2D(antenna_size, Lambda, element_dist, phi=np.pi/6, sample
 
     return theta, pattern
 
-def codeword_pattern(codeword, antenna_size, element_dist, phi, theta):
+def codeword_pattern(codeword, antenna_size, element_dist, phi, theta, norm=False):
     antenna_gain = np.sqrt(1/(antenna_size[0]*antenna_size[1]*antenna_size[2]))
 
     if np.count_nonzero(antenna_size == 1) > 1:
         #Uniform Linear Arrary (ULA) Case:
-        array_factor = ula_array_factor(antenna_size, element_dist, phi, theta)
+        array_factor = np.matrix(ula_array_factor(antenna_size, element_dist, phi, theta))
 
     elif np.count_nonzero(antenna_size == 1) == 1:
         #Uniform Planar Arrary (ULA) Case:
-        array_factor = upa_array_factor(antenna_size, element_dist, phi, theta)
+        array_factor = np.matrix(upa_array_factor(antenna_size, element_dist, phi, theta))
 
     else:
         #Otherwise, throw error!
         raise NotImplementedError
 
-    pattern = array_factor * codeword
-    pattern = np.linalg.norm(pattern)**2
+    pattern = array_factor * np.matrix(codeword)
+
+    if norm:
+        pattern = np.linalg.norm(antenna_gain*pattern)**2
+    else:
+        pattern = np.linalg.norm(pattern)**2
 
     return pattern
 
@@ -151,7 +157,7 @@ def plot_array_factor(antenna_size, element_dist, theta=np.pi/2, samples=1000, s
     plt.show()
 
 
-def plot_codeword_2D(codeword, antenna_size, element_dist, theta=np.pi/2, marker=None, samples=1000, save=False, figname=None):
+def plot_pattern_2D(codeword, antenna_size, element_dist, theta=np.pi/2, marker=None, samples=1000, save=False, figname=None):
     phi = np.arange(-np.pi, np.pi, 1/samples)
     pattern = [] #[[] for i in range(antenna_size[0]*antenna_size[1])]
 
@@ -175,23 +181,27 @@ def plot_codeword_2D(codeword, antenna_size, element_dist, theta=np.pi/2, marker
     plt.show()
     
 
-def plot_codebook_2D(codebook, antenna_size, Lambda, element_dist, theta=np.pi/2, marker=None, samples=1000, save=False, figname=None):
+def plot_codebook_2D(codebook, antenna_size, element_dist, theta=np.pi/2, samples=1000, save=False, figname=None):
     phi = np.arange(-np.pi, np.pi, 1/samples)
-    pattern = [] #[[] for i in range(antenna_size[0]*antenna_size[1])]
 
-    for p in phi:
-            #pattern.append(codeword_ula_pattern(codeword, antenna_size, Lambda, element_dist, p, theta))
-            pattern.append(codeword_pattern(codeword, antenna_size, Lambda, element_dist, p, theta))
-
-
+    size = antenna_size[0]*antenna_size[1]*antenna_size[2]
     fig, ax = plt.subplots(1,1,subplot_kw={'projection': 'polar'})
 
-    ax.plot(phi, pattern)
-    if marker is not None:
-        ax.vlines(marker, 0, max(pattern), color='red')
+    for index in range(size): 
+        codeword = codebook[:,index]
+        print(codeword)
+        pattern = []
+
+        for p in phi:
+                pattern.append(codeword_pattern(codeword, antenna_size, element_dist, p, theta, True))
+
+        ax.plot(phi, pattern, label = index)
 
     ax.set_rticks([]) #hide radial ticks
+    ax.set_title('Codebook Plot')
     ax.grid(True)
+
+    plt.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
 
     if save and figname is not None:
         plt.savefig(figname)

@@ -6,7 +6,9 @@ from numpy.linalg import svd, norm
 #from https://github.com/sergiossc/analog-beamforming-v2i
 from utils import get_precoder_combiner, gen_dftcodebook, beamsweeping2, beamsweeping3
 
-from plot_utils import plot_codeword_2D, plot_array_factor
+from plot_utils import plot_pattern_2D
+from plot_utils import plot_array_factor
+from plot_utils import plot_codebook_2D
 
 def general_parameters_conf(scenario : str, scenario_folder : str, num_paths : int)->dict:
     # Load the default parameters
@@ -97,7 +99,7 @@ if __name__ == '__main__':
     userequipment_conf(parameters, active_users, first_row, last_row, ue_shape)
 
     active_bs = np.array([5])
-    bs_shape = np.array([4,4,1])
+    bs_shape = np.array([2,2,1])
     basestation_conf(parameters, active_bs, bs_shape)
 
     num_channels = 1
@@ -120,16 +122,11 @@ if __name__ == '__main__':
     plot_array_factor(bs_shape, 0.25)
 
     # ======================= DFT CODEBOOK =============================
-    dftcodebook_tx = gen_dftcodebook(bs_shape[1])
-    # print(dftcodebook_tx)
+    dftcodebook_tx = gen_dftcodebook(bs_shape[0]*bs_shape[1])
+    print(dftcodebook_tx)
 
-    for codeword in range (bs_shape[1]):
-        plot_codeword_2D(dftcodebook_tx[:,codeword],#codeword
-                         bs_shape,                  #antenna dimensions
-                         0.25,                      #relative distance between elements
-                         np.pi/2,                   #path['DoD_theta'][0],                
-                         0)
-        
+    plot_codebook_2D(dftcodebook_tx, bs_shape, 0.25)
+
     dftcodebook_rx = gen_dftcodebook(ue_shape[1])
     # print(dftcodebook_rx)
 
@@ -149,13 +146,13 @@ if __name__ == '__main__':
             p_estmax, cw_id_max_tx, cw_id_max_rx = beamsweeping3(channel, dftcodebook_tx, dftcodebook_rx)
             print(p_estmax, cw_id_max_tx, cw_id_max_rx)
 
-            plot_codeword_2D(dftcodebook_tx[:,cw_id_max_tx],  #codeword
+            plot_pattern_2D(dftcodebook_tx[:,cw_id_max_tx],  #codeword
                     bs_shape,           #antenna dimensions
                     0.25,                   #relative distance between elements
                     np.pi/2,#path['DoD_theta'][0],                
                     path['DoD_phi'][0])
 
-            plot_codeword_2D(dftcodebook_rx[:,cw_id_max_rx],  #codeword
+            plot_pattern_2D(dftcodebook_rx[:,cw_id_max_rx],  #codeword
                     ue_shape,           #antenna dimensions
                     0.25,                   #relative distance between elements
                     np.pi/2, #path['DoA_theta'][0],                #Phi
